@@ -1,16 +1,24 @@
-from typing import Union
 from fastapi import FastAPI, HTTPException
-import joblib
+from pydantic import BaseModel
 import numpy as np
 import os
 import logging
+from joblib import load
 
 app = FastAPI()
 
-# Initialize the Service
-admin_password = ""
+# Define the input data model
+class SoilTestData(BaseModel):
+    soiltype: str
+    temp: float
+    humid: float
+    ph: float
+    N: float
+    P: float
+    K: float
+    conductivity: float
 
-# Define the model paths for the best models
+# Define the model paths
 model_paths = {
     'lab_pH': 'best_model_lab_pH.joblib',
     'lab_N': 'best_model_lab_N.joblib',
@@ -29,54 +37,40 @@ try:
     for target, path in model_paths.items():
         model_path = os.path.join("/app/model", path)
         logger.info(f"Loading model for {target} from {model_path}")
-        models[target] = joblib.load(model_path)
+        models[target] = load(model_path)
 except Exception as e:
     logger.error(f"Error loading models: {e}")
     raise e
+
+@app.post("/predict", tags=["Prediction Section"])
+async def predict(data: SoilTestData):
+    if data.soiltype not in ['clay', 'sand', 'silt']:
+        raise HTTPException(status_code=400, detail="Invalid soil type")
+
+    features = np.array([[data.temp, data.humid, data.ph, data.N, data.P, data.K, data.conductivity]])
+
+    predictions = {}
+    for target, model in models.items():
+        predictions[target] = model.predict(features)[0]
+
+    return predictions
 
 # Default Section ==============================================================
 
 @app.get("/")
 def read_root():
-    # Return Report or status
     return {"Hello": "World"}
 
 # Training Model Section ==============================================================
 
 @app.post("/add_sample", tags=["Training Section"])
 def add_sample(var1: float, var2: float, var3: float, var4: float):
-    # Add samples to the training dataset
     return {"message": f"add {var1} {var2} {var3} {var4}"}
 
 @app.post("/train", tags=["Training Section"])
 def train():
-    # Populate data and re fitting
-    # Get performance metric (RMSE etc.)
     return {"message": f"Model trained successfully with RMSE: {4.332}"}
 
 @app.post("/commit", tags=["Training Section"])
 def commit():
-    # Populate - Re-train Model - Save to file
-    # Retrieve Model
     return {"message": f"Model has been updated"}
-
-# Prediction Section ==============================================================
-
-@app.get("/predict", tags=["Prediction Section"])
-def predict(
-    soiltype: str,
-    test_temp: float,
-    test_humid: float,
-    test_PH: float,
-    test_N: float,
-    test_P: float,
-    Test_K: float,
-    test_Conductivity: float
-):
-    features = np.array([[test_temp, test_humid, test_PH, test_N, test_P, Test_K, test_Conductivity]])
-    
-    predictions = {}
-    for target, model in models.items():
-        predictions[target] = model.predict(features)[0]
-
-    return predictions
