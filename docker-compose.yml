@@ -1,0 +1,10 @@
+version: '3'
+services:
+  web:
+    build: .
+    volumes:
+      - ./app:/app
+      - ./model:/app/model
+      - ./samples_training_data:/app/samples_training_data
+    ports:
+      - "80:80"
