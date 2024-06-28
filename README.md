@@ -1,3 +1,7 @@
+## Model Trained joblib file using ##
+scikit-learn==1.2.2
+#####################################
+
 # FastAPI App template
 
 ___
